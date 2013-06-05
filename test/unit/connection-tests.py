@@ -75,9 +75,33 @@ class RestlibValidateResponseTests(unittest.TestCase):
     def test_404_empty(self):
         self.vr("404", "")
 
-    def test_404_json(self):
+    def test_404_random_json(self):
         content = u'{"something": "whatever"}'
         self.assertRaises(RemoteServerException, self.vr, "404", content)
+
+    def test_404_valid_body_old_style(self):
+        content = u'{"displayMessage": "not found"}'
+        try:
+            self.vr("404", content)
+        except RestlibException, e:
+            self.assertEquals("not found", e.msg)
+            self.assertEquals("404", e.code)
+        except Exception, e:
+            self.fail("RestlibException expected, got %s" % e)
+        else:
+            self.fail("RestlibException expected")
+
+    def test_404_valid_body(self):
+        content = u'{"errors": ["not found", "still not found"]}'
+        try:
+            self.vr("404", content)
+        except RestlibException, e:
+            self.assertEquals("not found still not found", e.msg)
+            self.assertEquals("404", e.code)
+        except Exception, e:
+            self.fail("RestlibException expected, got %s" % e)
+        else:
+            self.fail("RestlibException expected")
 
     def test_400_empty(self):
         self.vr("400", "")
