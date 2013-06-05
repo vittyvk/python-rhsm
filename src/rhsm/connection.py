@@ -447,25 +447,35 @@ class Restlib(object):
         return json.loads(result['content'], object_hook=self._decode_dict)
 
     def validateResponse(self, response):
-        if str(response['status']) not in ["200", "204"]:
+        if str(response['status']) in ["200", "204"]:
+            return
+
+        if str(response['status']) in ["404", "410", "500", "502", "503", "504"]:
+            # try vaguely to see if it had a json parseable body
             parsed = {}
             try:
                 parsed = json.loads(response['content'], object_hook=self._decode_dict)
+            except ValueError, e:
+                # helpful json parser provides one exception...
+                #log.error("JSON parsing error: %s" % e)
+                log.error("Response: %s" % response['status'])
+                raise RemoteServerException(response['status'])
             except Exception, e:
+                log.error("Response: %s" % response['status'])
                 log.exception(e)
-                log.error("Response: %s" % response)
-                if str(response['status']) in ["404", "500", "502", "503", "504"]:
-                    log.error('remote server status code: ' + str(response['status']))
-                    raise RemoteServerException(response['status'])
-                else:
-                    raise NetworkException(response['status'])
+                raise RemoteServerException(response['status'])
 
+            # find and raise a GoneException on '410' with 'deleteId' in the
+            # content, implying that the resource has been deleted
             if str(response['status']) == "410":
                 raise GoneException(response['status'],
-                        parsed['displayMessage'], parsed['deletedId'])
+                    parsed['displayMessage'], parsed['deletedId'])
 
             error_msg = self._parse_msg_from_error_response_body(parsed)
             raise RestlibException(response['status'], error_msg)
+
+        else:
+            raise NetworkException(response['status'])
 
     def _parse_msg_from_error_response_body(self, body):
 
