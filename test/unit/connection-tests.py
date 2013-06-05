@@ -20,10 +20,11 @@ from rhsm.connection import UEPConnection, Restlib, ConnectionException, Connect
         BadCertificateException, RestlibException, GoneException, NetworkException, \
         RemoteServerException, drift_check, ExpiredIdentityCertException
 
-from mock import Mock
+from mock import Mock, patch
 from datetime import date
 from time import strftime, gmtime
 import simplejson as json
+
 
 class ConnectionTests(unittest.TestCase):
 
@@ -59,6 +60,57 @@ class ConnectionTests(unittest.TestCase):
 
     def test_clean_up_prefix(self):
         self.assertTrue(self.cp.handler == "/Test")
+
+
+class RestlibValidateResponseTests(unittest.TestCase):
+    def setUp(self):
+        self.restlib = Restlib("somehost", "123", "somehandler")
+
+    def vr(self, status, content):
+        response = {'status': status,
+                    'content': content}
+        print "response", response
+        self.restlib.validateResponse(response)
+
+    def test_404_empty(self):
+        self.vr("404", "")
+
+    def test_404_json(self):
+        content = u'{"something": "whatever"}'
+        self.assertRaises(RemoteServerException, self.vr, "404", content)
+
+    def test_400_empty(self):
+        self.vr("400", "")
+
+    def test_200_empty(self):
+        # this should just not raise any exceptions
+        self.vr("200", "")
+
+    def test_200_json(self):
+        # no exceptions
+        content = u'{"something": "whatever"}'
+        self.vr("200", content)
+
+    def test_500_empty(self):
+        self.vr("500", "")
+
+    def test_599_emtpty(self):
+        self.assertRaises(NetworkException, self.vr, "599", "")
+
+    def test_410_emtpy(self):
+        self.vr("410", "")
+
+    def test_410_body(self):
+        content = u'{"displayMessage": "foo", "deletedId": "12345"}'
+        #self.assertRaises(GoneException, self.vr, "410", content)
+        try:
+            self.vr("410", content)
+        except GoneException, e:
+            self.assertEquals("12345", e.deleted_id)
+            self.assertEquals("foo", e.msg)
+            self.assertEquals("410", e.code)
+        else:
+            self.fail("Should have raised a GoneException")
 
 
 class RestlibTests(unittest.TestCase):
