@@ -137,10 +137,18 @@ class NetworkException(ConnectionException):
 
 class RemoteServerException(ConnectionException):
 
-    def __init__(self, code):
+    def __init__(self, code,
+                 request_type=None,
+                 handler=None):
         self.code = code
+        self.request_type = request_type
+        self.handler = handler
 
     def __str__(self):
+        if self.request_type and self.handler:
+            return "Server error attempt a %s to %s returned %s" % (self.request_type,
+                                                                    self.handler,
+                                                                    self.code)
         return "Server returned %s" % self.code
 
 
@@ -440,13 +448,14 @@ class Restlib(object):
         # FIXME: we should probably do this in a wrapper method
         # so we can use the request method for normal http
 
-        self.validateResponse(result)
+        self.validateResponse(result, request_type, handler)
         if not len(result['content']):
             return None
 
         return json.loads(result['content'], object_hook=self._decode_dict)
 
-    def validateResponse(self, response):
+    def validateResponse(self, response, request_type=None, handler=None):
+
         if str(response['status']) in ["200", "204"]:
             return
 
@@ -459,11 +468,15 @@ class Restlib(object):
                 # helpful json parser provides one exception...
                 #log.error("JSON parsing error: %s" % e)
                 log.error("Response: %s" % response['status'])
-                raise RemoteServerException(response['status'])
+                raise RemoteServerException(response['status'],
+                                            request_type=request_type,
+                                            handler=handler)
             except Exception, e:
                 log.error("Response: %s" % response['status'])
                 log.exception(e)
-                raise RemoteServerException(response['status'])
+                raise RemoteServerException(response['status'],
+                                            request_type=request_type,
+                                            handler=handler)
 
             # find and raise a GoneException on '410' with 'deleteId' in the
             # content, implying that the resource has been deleted

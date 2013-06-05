@@ -65,12 +65,14 @@ class ConnectionTests(unittest.TestCase):
 class RestlibValidateResponseTests(unittest.TestCase):
     def setUp(self):
         self.restlib = Restlib("somehost", "123", "somehandler")
+        self.request_type = "GET"
+        self.handler = "https://server/path"
 
     def vr(self, status, content):
         response = {'status': status,
                     'content': content}
         print "response", response
-        self.restlib.validateResponse(response)
+        self.restlib.validateResponse(response, self.request_type, self.handler)
 
     def test_404_empty(self):
         self.vr("404", "")
@@ -116,7 +118,13 @@ class RestlibValidateResponseTests(unittest.TestCase):
         self.vr("200", content)
 
     def test_500_empty(self):
-        self.vr("500", "")
+        try:
+            self.vr("500", "")
+        except RemoteServerException, e:
+            self.assertEquals(self.request_type, e.request_type)
+            self.assertEquals(self.handler, e.handler)
+        else:
+            self.fail("RemoteServerException expected")
 
     def test_599_emtpty(self):
         self.assertRaises(NetworkException, self.vr, "599", "")
