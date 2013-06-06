@@ -107,9 +107,9 @@ class BadCertificateException(ConnectionException):
 
 class RestlibException(ConnectionException):
 
-    def __init__(self, code, msg=""):
+    def __init__(self, code, msg=None):
         self.code = code
-        self.msg = msg
+        self.msg = msg or ""
 
     def __str__(self):
         return self.msg
@@ -146,9 +146,9 @@ class RemoteServerException(ConnectionException):
 
     def __str__(self):
         if self.request_type and self.handler:
-            return "Server error attempt a %s to %s returned %s" % (self.request_type,
-                                                                    self.handler,
-                                                                    self.code)
+            return "Server error attempting a %s to %s returned status %s" % (self.request_type,
+                                                                              self.handler,
+                                                                              self.code)
         return "Server returned %s" % self.code
 
 
@@ -449,6 +449,8 @@ class Restlib(object):
         # so we can use the request method for normal http
 
         self.validateResponse(result, request_type, handler)
+
+        # handle empty, but succesful responses, ala 204
         if not len(result['content']):
             return None
 
@@ -456,9 +458,11 @@ class Restlib(object):
 
     def validateResponse(self, response, request_type=None, handler=None):
 
+        # FIXME: what are we supposed to do with a 204?
         if str(response['status']) in ["200", "204"]:
             return
 
+        # looks like an error...
         if str(response['status']) in ["404", "410", "500", "502", "503", "504"]:
             # try vaguely to see if it had a json parseable body
             parsed = {}
@@ -487,8 +491,12 @@ class Restlib(object):
             error_msg = self._parse_msg_from_error_response_body(parsed)
             raise RestlibException(response['status'], error_msg)
 
+        # an error we dont understand...? why NetworkException?
+        # FIXME: how do we handle other 20X ?
         else:
             raise NetworkException(response['status'])
+
+        # er, can't really here...
 
     def _parse_msg_from_error_response_body(self, body):
 
