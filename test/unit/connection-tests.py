@@ -20,7 +20,7 @@ from rhsm.connection import UEPConnection, Restlib, ConnectionException, Connect
         BadCertificateException, RestlibException, GoneException, NetworkException, \
         RemoteServerException, drift_check, ExpiredIdentityCertException
 
-from mock import Mock, patch
+from mock import Mock
 from datetime import date
 from time import strftime, gmtime
 import simplejson as json
@@ -106,6 +106,11 @@ class RestlibValidateResponseTests(unittest.TestCase):
             self.fail("RestlibException expected")
 
     def test_400_empty(self):
+        # FIXME: not sure 400 makes sense as "NetworkException"
+        #        we check for NetworkException in several places in
+        #        addition to RestlibException and RemoteServerException
+        #        I think maybe a 400 ("Bad Request") should be a
+        #        RemoteServerException
         self.vr("400", "")
 
     def test_200_empty(self):
@@ -130,7 +135,13 @@ class RestlibValidateResponseTests(unittest.TestCase):
         self.assertRaises(NetworkException, self.vr, "599", "")
 
     def test_410_emtpy(self):
-        self.vr("410", "")
+        try:
+            self.vr("410", "")
+        except RemoteServerException, e:
+            self.assertEquals(self.request_type, e.request_type)
+            self.assertEquals(self.handler, e.handler)
+        else:
+            self.fail("RemoteServerException expected")
 
     def test_410_body(self):
         content = u'{"displayMessage": "foo", "deletedId": "12345"}'
