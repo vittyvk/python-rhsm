@@ -71,15 +71,73 @@ class RestlibValidateResponseTests(unittest.TestCase):
     def vr(self, status, content):
         response = {'status': status,
                     'content': content}
-        print "response", response
+        #print "response", response
         self.restlib.validateResponse(response, self.request_type, self.handler)
 
-    def test_404_empty(self):
-        self.vr("404", "")
+    def test_200_empty(self):
+        # this should just not raise any exceptions
+        self.vr("200", "")
 
-    def test_404_random_json(self):
+    def test_200_json(self):
+        # no exceptions
         content = u'{"something": "whatever"}'
-        self.assertRaises(RemoteServerException, self.vr, "404", content)
+        self.vr("200", content)
+
+    # 202 ACCEPTED
+    # FIXME: this should be okay? or RestlibException?
+    def test_202_empty(self):
+        self.vr("202", "")
+
+    def test_202_none(self):
+        self.vr("202", None)
+
+    # 204 NO CONTENT
+    # no exceptions is okay
+    def test_204_empty(self):
+        self.vr("204", "")
+
+    # no exceptions is okay
+    def test_204_None(self):
+        self.vr("204", None)
+
+    # arbitrary non specically handled 2XX
+    # FIXME: subscription-manager/gui/utils.py:handle_gui_exception seems to
+    # think this should return a RestlibException with info in e.msg
+    def test_227_empty(self):
+        self.vr("227", "")
+
+    # MOVED PERMANENTLY
+    def test_301_empty(self):
+        self.vr("301", "")
+
+    def test_400_empty(self):
+        # FIXME: not sure 400 makes sense as "NetworkException"
+        #        we check for NetworkException in several places in
+        #        addition to RestlibException and RemoteServerException
+        #        I think maybe a 400 ("Bad Request") should be a
+        #        RemoteServerException
+        self.vr("400", "")
+
+    def test_404_empty(self):
+        try:
+            self.vr("404", "")
+        except RemoteServerException, e:
+            self.assertEquals(self.request_type, e.request_type)
+            self.assertEquals(self.handler, e.handler)
+            self.assertEquals("404", e.code)
+            self.assertEquals("Server error attempting a GET to https://server/path returned status 404", str(e))
+        else:
+            self.fails("Should of raise RemoteServerException")
+
+    def test_404_valid_but_irrelevant_json(self):
+        content = u'{"something": "whatever"}'
+        try:
+            self.vr("404", content)
+        except RestlibException, e:
+            self.assertEquals("404", e.code)
+            self.assertEquals("", e.msg)
+        else:
+            self.fails("Should of raised a RemoteServerException")
 
     def test_404_valid_body_old_style(self):
         content = u'{"displayMessage": "not found"}'
@@ -105,35 +163,6 @@ class RestlibValidateResponseTests(unittest.TestCase):
         else:
             self.fail("RestlibException expected")
 
-    def test_400_empty(self):
-        # FIXME: not sure 400 makes sense as "NetworkException"
-        #        we check for NetworkException in several places in
-        #        addition to RestlibException and RemoteServerException
-        #        I think maybe a 400 ("Bad Request") should be a
-        #        RemoteServerException
-        self.vr("400", "")
-
-    def test_200_empty(self):
-        # this should just not raise any exceptions
-        self.vr("200", "")
-
-    def test_200_json(self):
-        # no exceptions
-        content = u'{"something": "whatever"}'
-        self.vr("200", content)
-
-    def test_500_empty(self):
-        try:
-            self.vr("500", "")
-        except RemoteServerException, e:
-            self.assertEquals(self.request_type, e.request_type)
-            self.assertEquals(self.handler, e.handler)
-        else:
-            self.fail("RemoteServerException expected")
-
-    def test_599_emtpty(self):
-        self.assertRaises(NetworkException, self.vr, "599", "")
-
     def test_410_emtpy(self):
         try:
             self.vr("410", "")
@@ -154,6 +183,18 @@ class RestlibValidateResponseTests(unittest.TestCase):
             self.assertEquals("410", e.code)
         else:
             self.fail("Should have raised a GoneException")
+
+    def test_500_empty(self):
+        try:
+            self.vr("500", "")
+        except RemoteServerException, e:
+            self.assertEquals(self.request_type, e.request_type)
+            self.assertEquals(self.handler, e.handler)
+        else:
+            self.fail("RemoteServerException expected")
+
+    def test_599_emtpty(self):
+        self.assertRaises(NetworkException, self.vr, "599", "")
 
 
 class RestlibTests(unittest.TestCase):
@@ -247,6 +288,7 @@ class DriftTest(unittest.TestCase):
     def test_no_drift(self):
         header = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime())
         self.assertFalse(drift_check(header))
+
 
 class GoneExceptionTest(ExceptionTest):
     exception = GoneException
