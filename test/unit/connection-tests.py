@@ -74,6 +74,7 @@ class RestlibValidateResponseTests(unittest.TestCase):
         #print "response", response
         self.restlib.validateResponse(response, self.request_type, self.handler)
 
+    # All empty responses that aren't 200/204 raise a NetworkException
     def test_200_empty(self):
         # this should just not raise any exceptions
         self.vr("200", "")
@@ -84,12 +85,23 @@ class RestlibValidateResponseTests(unittest.TestCase):
         self.vr("200", content)
 
     # 202 ACCEPTED
-    # FIXME: this should be okay? or RestlibException?
     def test_202_empty(self):
-        self.vr("202", "")
+        self.assertRaises(NetworkException, self.vr, "202", "")
 
     def test_202_none(self):
-        self.vr("202", None)
+        self.assertRaises(NetworkException, self.vr, "202", None)
+
+    def test_202_json(self):
+        content = u'{"something": "whatever"}'
+        try:
+            self.vr("202", content)
+        except RestlibException, e:
+            self.assertEquals("202", e.code)
+#            self.assertEquals(self.request_type, e.request_type)
+#            self.assertEquals(self.handler, e.handler)
+            self.assertTrue(e.msg is "")
+        else:
+            self.fail("Should of raised a Restlib exception")
 
     # 204 NO CONTENT
     # no exceptions is okay
@@ -99,12 +111,6 @@ class RestlibValidateResponseTests(unittest.TestCase):
     # no exceptions is okay
     def test_204_None(self):
         self.vr("204", None)
-
-    # arbitrary non specically handled 2XX
-    # FIXME: subscription-manager/gui/utils.py:handle_gui_exception seems to
-    # think this should return a RestlibException with info in e.msg
-    def test_227_empty(self):
-        self.vr("227", "")
 
     # MOVED PERMANENTLY
     def test_301_empty(self):

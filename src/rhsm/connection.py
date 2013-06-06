@@ -460,26 +460,21 @@ class Restlib(object):
 
         # FIXME: what are we supposed to do with a 204?
         if str(response['status']) not in ["200", "204"]:
-            # looks like an error...
-            if str(response['status']) in ["404", "410", "500", "502", "503", "504"]:
-                # try vaguely to see if it had a json parseable body
+            parsed = {}
+            if not response['content']:
                 parsed = {}
+            else:
+                # try vaguely to see if it had a json parseable body
                 try:
                     parsed = json.loads(response['content'], object_hook=self._decode_dict)
                 except ValueError, e:
-                    # helpful json parser provides one exception...
-                    #log.error("JSON parsing error: %s" % e)
                     log.error("Response: %s" % response['status'])
-                    raise RemoteServerException(response['status'],
-                                                request_type=request_type,
-                                                handler=handler)
+                    log.error("JSON parsing error: %s" % e.msg)
                 except Exception, e:
                     log.error("Response: %s" % response['status'])
                     log.exception(e)
-                    raise RemoteServerException(response['status'],
-                                                request_type=request_type,
-                                                handler=handler)
 
+            if parsed:
                 # find and raise a GoneException on '410' with 'deleteId' in the
                 # content, implying that the resource has been deleted
                 # NOTE: a 410 with a unparseable content will raise
@@ -489,15 +484,21 @@ class Restlib(object):
                         parsed['displayMessage'], parsed['deletedId'])
 
                 # I guess this is where we would have an exception mapper if we
-                # had more meaninful exceptions
+                # had more meaningful exceptions. We've gotten a response from
+                # the server that means something.
 
+                # FIXME: we can get here with a valid json response that
+                # could be anything, we don't verify it anymore
                 error_msg = self._parse_msg_from_error_response_body(parsed)
                 raise RestlibException(response['status'], error_msg)
-
-            # an error we dont understand...? why NetworkException?
             else:
-                raise NetworkException(response['status'])
-       # other 2XX, 3XX, etc
+                if str(response['status']) in ["404", "410", "500", "502", "503", "504"]:
+                    raise RemoteServerException(response['status'],
+                                                request_type=request_type,
+                                                handler=handler)
+                else:
+                    # unexpected with no valid content
+                    raise NetworkException(response['status'])
 
     def _parse_msg_from_error_response_body(self, body):
 
