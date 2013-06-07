@@ -428,12 +428,12 @@ class Restlib(object):
                            {"Content-Length": "0"}.items())
         try:
             conn.request(request_type, handler, body=body, headers=headers)
-        except SSLError, e:
+        except SSLError:
             if self.cert_file:
                 id_cert = certificate.create_from_file(self.cert_file)
                 if not id_cert.is_valid():
                     raise ExpiredIdentityCertException()
-            raise e
+            raise
         response = conn.getresponse()
         result = {
             "content": response.read(),
