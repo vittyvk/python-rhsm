@@ -122,7 +122,10 @@ class RestlibValidateResponseTests(unittest.TestCase):
         #        addition to RestlibException and RemoteServerException
         #        I think maybe a 400 ("Bad Request") should be a
         #        RemoteServerException
-        self.vr("400", "")
+        self.assertRaises(NetworkException,
+                          self.vr,
+                          "400",
+                          "")
 
     def test_404_empty(self):
         try:
