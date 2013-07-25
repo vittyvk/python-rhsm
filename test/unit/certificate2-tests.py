@@ -298,6 +298,22 @@ class ContentTests(unittest.TestCase):
         self.assertTrue(isinstance(c.arches, types.ListType))
         self.assertTrue('ALL' in c.arches)
 
+    def test_cdn(self):
+        c = Content(content_type="yum", name="mycontent", label="mycontent", enabled=1, cdn="https://cdn.example.com")
+        self.assertEquals("https://cdn.example.com", c.cdn)
+
+    def test_no_cdn(self):
+        c = Content(content_type="yum", name="mycontent", label="mycontent", enabled=1)
+        self.assertEquals(None, c.cdn)
+
+    def test_ca_cert(self):
+        c = Content(content_type="yum", name="mycontent", label="mycontent", enabled=1, ca_cert="/etc/rhsm/ca/ca-cert.pem")
+        self.assertEquals("/etc/rhsm/ca/ca-cert.pem", c.ca_cert)
+
+    def test_no_ca_cert(self):
+        c = Content(content_type="yum", name="mycontent", label="mycontent", enabled=1)
+        self.assertEquals(None, c.ca_cert)
+
 
 class ProductTests(unittest.TestCase):
 
